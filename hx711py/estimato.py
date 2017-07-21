@@ -1,3 +1,4 @@
+from picamera import PiCamera
 import RPi.GPIO as GPIO
 import time
 import json
@@ -17,6 +18,7 @@ status_topic = "quine/" + deviceID + "/appStatus"
 last_will_topic = "quine/" + deviceID + "/deviceStatus"
 last_will_message = "offline"
 GPIO.setup(4, GPIO.OUT)
+camera = PiCamera()
 
 def on_connect(client, userdata, rc):
     print("Connected with result code "+str(rc))
@@ -133,6 +135,7 @@ while True:
 			print "Weight change more than threshold"
 			if (val > oldWeight):
 				print "Weight increased"
+				camera.capture('/home/pi/Desktop/image.jpg')
 				oldWeight = val
 			else:
 				print "Weight decreased"
