@@ -11,6 +11,10 @@ import google.auth
 
 list_of_vegetables = ["onion", "tomato", "sk "]
 FUZZY_THRESHOLD = 60
+deviceID = "ESTIMATO__001"
+appID = "APP_01"
+topic = "estimato/" + deviceID + "/item"
+broker = sys.argv[1]
 
 class Payload:
     deviceID = ""
@@ -72,39 +76,24 @@ def getLabel(image_path):
     return findMostProbableVegetable(labels)
 
 
-#def setup():
-#    hx = HX711(23, 24)
-#    camera = PiCamera()
-#    GPIO.setup(4, GPIO.OUT)
-
-deviceID = "CART__0_40"
-appID = "CART_0"
-#DOUT, SCK
-broker = sys.argv[1]
-topic = "estimato/" + deviceID + "/item"
-GPIO.setup(4, GPIO.OUT)
-
-    
-client = paho.Client(client_id="pi_device_1")
-client.on_publish = on_publish
-client.on_connect = on_connect
-client.on_subscribe = on_subscribe
-client.on_message = on_message
-
-packet = Payload(deviceID,appID)
-
-client.connect(broker, 1883)
-client.loop_start()
-hx.set_reading_format("LSB", "MSB")
-hx.set_reference_unit(92)
-
-hx.reset()
-hx.tare()
-
-credentials, project = google.auth.default()
-
-"""Detects labels in the file."""
-vision_client = vision.Client(credentials=credentials)
+def setup():
+   hx = HX711(23, 24)
+   camera = PiCamera()
+   GPIO.setup(4, GPIO.OUT)
+   client = paho.Client(client_id="pi_device_1")
+   client.on_publish = on_publish
+   client.on_connect = on_connect
+   client.on_subscribe = on_subscribe
+   client.on_message = on_message
+   packet = Payload(deviceID,appID)
+   client.connect(broker, 1883)
+   client.loop_start()
+   hx.set_reading_format("LSB", "MSB")
+   hx.set_reference_unit(92)
+   hx.reset()
+   hx.tare()
+   credentials, project = google.auth.default()
+   vision_client = vision.Client(credentials=credentials)
 
 
 weightBuffer = [0] * 10
