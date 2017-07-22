@@ -25,12 +25,8 @@ deviceID = "CART__0_40"
 appID = "CART_0"
 #DOUT, SCK
 hx = HX711(23, 24)
-#broker = sys.argv[1]
-topic = "quine/" + deviceID + "/weight"
-action_topic = "quine/" + deviceID + "/action"
-status_topic = "quine/" + deviceID + "/appStatus"
-last_will_topic = "quine/" + deviceID + "/deviceStatus"
-last_will_message = "offline"
+broker = sys.argv[1]
+topic = "estimato/" + deviceID + "/item"
 GPIO.setup(4, GPIO.OUT)
 camera = PiCamera()
 
@@ -39,8 +35,6 @@ def on_connect(client, userdata, rc):
     # Subscribing in on_connect() means that if we lose the connection and
     # reconnect then subscriptions will be renewed.
     client.subscribe("$SYS/#")
-    client.subscribe(action_topic, qos=0)
-    client.subscribe(status_topic, qos=0)
 
 def on_publish(client, userdata, mid):
     print("published : "+str(mid))
@@ -58,24 +52,20 @@ def on_subscribe(client, userdata, mid, granted_qos):
  
 def on_message(client, userdata, msg):
     jsonMsg = json.loads(str(msg.payload))
-    global deviceInfo
-    if(msg.topic == action_topic):
-    	if(jsonMsg['tare']==1):
-	    hx.tare()
-	    print("Tare")
-    if(msg.topic == status_topic):
-        deviceInfo.updateInfo(jsonMsg['cartComputedWeight'], jsonMsg['weightConvFactor'], jsonMsg['weightChangeThreshold'])	
     #print(msg.payload) 
 
 class Payload:
     deviceID = ""
     appID = ""
     weight = 0
+    label = ""
     def __init__(self, deviceID, appID):
         self.deviceID = deviceID
         self.appID = appID
     def setWeight(self,weight):
         self.weight = weight
+    def setLabel(self,label):
+        self.label = label
 
 def allEqual(weightBuffer):
 	average = sum(weightBuffer)/len(weightBuffer)
@@ -91,10 +81,9 @@ client.on_subscribe = on_subscribe
 client.on_message = on_message
 
 packet = Payload(deviceID,appID)
-client.will_set(last_will_topic, last_will_message, 0, False)
 
-#client.connect(broker, 1883)
-#client.loop_start()
+client.connect(broker, 1883)
+client.loop_start()
 hx.set_reading_format("LSB", "MSB")
 hx.set_reference_unit(92)
 
@@ -130,8 +119,6 @@ while True:
 	weightBuffer.pop(0)
 	print weightBuffer
 
-        packet.setWeight(val)
-        #client.publish(topic, json.dumps(packet.__dict__), qos=0)
 	if (allEqual(weightBuffer) == 0):
 		print "Weight unstable" 
 		GPIO.output(4, GPIO.LOW)
@@ -146,9 +133,12 @@ while True:
 				name = str(time.time()).split('.')[0]
                                 image_path = '/home/pi/Desktop/estimatoDevice/images/image_' + name + '.jpg'
 				camera.capture(image_path)
-                                print getLabel(image_path)
-                                
+                                label = getLabel(image_path)
+				print label
 				oldWeight = val
+				packet.setWeight(val)
+				packet.setLabel(label)
+				client.publish(topic, json.dumps(packet.__dict__), qos=0)
 			else:
 				print "Weight decreased"
 				oldWeight = val
