@@ -1,0 +1,11 @@
+[Unit]
+Description=Estimato Device Service
+After=multi-user.target
+ 
+[Service]
+Type=simple
+ExecStart=/bin/sh /home/pi/Desktop/estimatoDevice
+Restart=always
+ 
+[Install]
+WantedBy=multi-user.target
