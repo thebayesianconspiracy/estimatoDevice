@@ -1,1 +1,1 @@
-/usr/bin/python /home/pi/Desktop/quine/cart-device/raspberrypi/hx711py/runCart.py 35.154.27.20
+/usr/bin/python /home/pi/Desktop/estimatoDevice/estimato.py 35.154.27.20

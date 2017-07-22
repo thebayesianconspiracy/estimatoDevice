@@ -114,7 +114,7 @@ weightChangeThreshold = 10
 
 while True:
     try:
-        val = hx.get_weight(5)
+        val = -1 * hx.get_weight(5)
         print "Sensor reading : " + str(val)
         hx.power_down()
         hx.power_up()
@@ -135,7 +135,8 @@ while True:
 			print "Weight change more than threshold"
 			if (val > oldWeight):
 				print "Weight increased"
-				camera.capture('/home/pi/Desktop/image.jpg')
+				name = str(time.time()).split('.')[0]
+				camera.capture('/home/pi/Desktop/estimatoDevice/images/image_' + name + '.jpg')
 				oldWeight = val
 			else:
 				print "Weight decreased"
