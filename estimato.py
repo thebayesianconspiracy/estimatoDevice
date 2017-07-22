@@ -1,17 +1,31 @@
+
+from google.cloud import vision
+from fuzzywuzzy import process
+from fuzzywuzzy import fuzz
 from picamera import PiCamera
-import RPi.GPIO as GPIO
-import time
-import json
-import sys
-import math
 from hx711 import HX711
+import RPi.GPIO as GPIO
+import time, json, sys, math, io
 import paho.mqtt.client as paho
+import google.auth
+
+list_of_vegetables = ["onion", "tomato", "sk "]
+FUZZY_THRESHOLD = 60
+
+def findMostProbableVegetable(labels):
+    for label in labels:
+        print label.description," ",label.score
+        extractedVegetable = process.extractOne(label.description, list_of_vegetables, scorer=fuzz.token_sort_ratio)
+        if (extractedVegetable[1] > FUZZY_THRESHOLD):
+            return extractedVegetable[0]
+    return "None"
+
 
 deviceID = "CART__0_40"
 appID = "CART_0"
 #DOUT, SCK
 hx = HX711(23, 24)
-broker = sys.argv[1]
+#broker = sys.argv[1]
 topic = "quine/" + deviceID + "/weight"
 action_topic = "quine/" + deviceID + "/action"
 status_topic = "quine/" + deviceID + "/appStatus"
@@ -53,23 +67,6 @@ def on_message(client, userdata, msg):
         deviceInfo.updateInfo(jsonMsg['cartComputedWeight'], jsonMsg['weightConvFactor'], jsonMsg['weightChangeThreshold'])	
     #print(msg.payload) 
 
-class DeviceInfo:
-    cartComputedWeight = 0
-    weightConvFactor = 0
-    weightChangeThreshold = 0
-    def __init__(self, cartComputedWeight, weightConvFactor, weightChangeThreshold):
-	self.cartComputedWeight = cartComputedWeight
-	self.weightConvFactor = weightConvFactor
-	self.weightChangeThreshold = weightChangeThreshold
-    def updateInfo(self, cartComputedWeight, weightConvFactor, weightChangeThreshold):
-	self.cartComputedWeight = cartComputedWeight
-	self.weightConvFactor = weightConvFactor
-	self.weightChangeThreshold = weightChangeThreshold
-    def checkWeight(self, weight):
-	if (math.fabs(-weight - self.cartComputedWeight * self.weightConvFactor) > self.weightChangeThreshold * self.weightConvFactor):
-	    return 0
-	return 1
-
 class Payload:
     deviceID = ""
     appID = ""
@@ -84,9 +81,9 @@ def allEqual(weightBuffer):
 	average = sum(weightBuffer)/len(weightBuffer)
 	for weight in weightBuffer:
 		if (math.fabs(weight - average) > 0.05 * average and math.fabs(weight - average) > 5):
-			#print ("Item : " + arr[weight] + " Average : " + average)
 			return 0 
 	return 1
+    
 client = paho.Client(client_id="pi_device_1")
 client.on_publish = on_publish
 client.on_connect = on_connect
@@ -94,8 +91,6 @@ client.on_subscribe = on_subscribe
 client.on_message = on_message
 
 packet = Payload(deviceID,appID)
-deviceInfo = DeviceInfo(0,0,0)
-
 client.will_set(last_will_topic, last_will_message, 0, False)
 
 #client.connect(broker, 1883)
@@ -106,11 +101,24 @@ hx.set_reference_unit(92)
 hx.reset()
 hx.tare()
 
+credentials, project = google.auth.default()
+
+"""Detects labels in the file."""
+vision_client = vision.Client(credentials=credentials)
+
 
 weightBuffer = [0] * 10
 oldWeight = 0
 newWeight = 0
 weightChangeThreshold = 10
+
+def getLabel(image_path):
+    with io.open(image_path, 'rb') as image_file:
+        content = image_file.read()
+    image = vision_client.image(content=content)
+    labels = image.detect_labels()
+    return findMostProbableVegetable(labels)
+
 
 while True:
     try:
@@ -136,7 +144,10 @@ while True:
 			if (val > oldWeight):
 				print "Weight increased"
 				name = str(time.time()).split('.')[0]
-				camera.capture('/home/pi/Desktop/estimatoDevice/images/image_' + name + '.jpg')
+                                image_path = '/home/pi/Desktop/estimatoDevice/images/image_' + name + '.jpg'
+				camera.capture(image_path)
+                                print getLabel(image_path)
+                                
 				oldWeight = val
 			else:
 				print "Weight decreased"
