@@ -12,6 +12,26 @@ import google.auth
 list_of_vegetables = ["onion", "tomato", "sk "]
 FUZZY_THRESHOLD = 60
 
+class Payload:
+    deviceID = ""
+    appID = ""
+    weight = 0
+    label = ""
+    def __init__(self, deviceID, appID):
+        self.deviceID = deviceID
+        self.appID = appID
+    def setWeight(self,weight):
+        self.weight = weight
+    def setLabel(self,label):
+        self.label = label
+
+def allEqual(weightBuffer):
+	average = sum(weightBuffer)/len(weightBuffer)
+	for weight in weightBuffer:
+		if (math.fabs(weight - average) > 0.05 * average and math.fabs(weight - average) > 5):
+			return 0 
+	return 1
+
 def findMostProbableVegetable(labels):
     for label in labels:
         print label.description," ",label.score
@@ -19,16 +39,6 @@ def findMostProbableVegetable(labels):
         if (extractedVegetable[1] > FUZZY_THRESHOLD):
             return extractedVegetable[0]
     return "None"
-
-
-deviceID = "CART__0_40"
-appID = "CART_0"
-#DOUT, SCK
-hx = HX711(23, 24)
-broker = sys.argv[1]
-topic = "estimato/" + deviceID + "/item"
-GPIO.setup(4, GPIO.OUT)
-camera = PiCamera()
 
 def on_connect(client, userdata, rc):
     print("Connected with result code "+str(rc))
@@ -54,25 +64,26 @@ def on_message(client, userdata, msg):
     jsonMsg = json.loads(str(msg.payload))
     #print(msg.payload) 
 
-class Payload:
-    deviceID = ""
-    appID = ""
-    weight = 0
-    label = ""
-    def __init__(self, deviceID, appID):
-        self.deviceID = deviceID
-        self.appID = appID
-    def setWeight(self,weight):
-        self.weight = weight
-    def setLabel(self,label):
-        self.label = label
+def getLabel(image_path):
+    with io.open(image_path, 'rb') as image_file:
+        content = image_file.read()
+    image = vision_client.image(content=content)
+    labels = image.detect_labels()
+    return findMostProbableVegetable(labels)
 
-def allEqual(weightBuffer):
-	average = sum(weightBuffer)/len(weightBuffer)
-	for weight in weightBuffer:
-		if (math.fabs(weight - average) > 0.05 * average and math.fabs(weight - average) > 5):
-			return 0 
-	return 1
+
+#def setup():
+#    hx = HX711(23, 24)
+#    camera = PiCamera()
+#    GPIO.setup(4, GPIO.OUT)
+
+deviceID = "CART__0_40"
+appID = "CART_0"
+#DOUT, SCK
+broker = sys.argv[1]
+topic = "estimato/" + deviceID + "/item"
+GPIO.setup(4, GPIO.OUT)
+
     
 client = paho.Client(client_id="pi_device_1")
 client.on_publish = on_publish
@@ -100,14 +111,6 @@ weightBuffer = [0] * 10
 oldWeight = 0
 newWeight = 0
 weightChangeThreshold = 10
-
-def getLabel(image_path):
-    with io.open(image_path, 'rb') as image_file:
-        content = image_file.read()
-    image = vision_client.image(content=content)
-    labels = image.detect_labels()
-    return findMostProbableVegetable(labels)
-
 
 while True:
     try:
