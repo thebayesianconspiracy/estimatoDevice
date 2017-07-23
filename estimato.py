@@ -1,4 +1,3 @@
-
 from google.cloud import vision
 from fuzzywuzzy import process
 from fuzzywuzzy import fuzz
@@ -9,12 +8,12 @@ import time, json, sys, math, io
 import paho.mqtt.client as paho
 import google.auth
 
-list_of_vegetables = ["onion", "tomato", "sk "]
+list_of_vegetables = ["onion", "tomato", "bell pepper", "cucumber", "lemon", "herb"]
 FUZZY_THRESHOLD = 60
 
 def findMostProbableVegetable(labels):
     for label in labels:
-        print label.description," ",label.score
+        #print label.description," ",label.score
         extractedVegetable = process.extractOne(label.description, list_of_vegetables, scorer=fuzz.token_sort_ratio)
         if (extractedVegetable[1] > FUZZY_THRESHOLD):
             return extractedVegetable[0]
@@ -29,6 +28,7 @@ broker = sys.argv[1]
 topic = "estimato/" + deviceID + "/item"
 GPIO.setup(4, GPIO.OUT)
 camera = PiCamera()
+camera.start_preview()
 
 def on_connect(client, userdata, rc):
     print("Connected with result code "+str(rc))
@@ -122,10 +122,12 @@ while True:
 	if (allEqual(weightBuffer) == 0):
 		print "Weight unstable" 
 		GPIO.output(4, GPIO.LOW)
+		client.publish(topic, "wait", qos=0)
 	elif (allEqual(weightBuffer) != 0):
 		print "Weight stable. Current Weight : " + str(oldWeight) 
 		weightChange = math.fabs(val - oldWeight)
 		print "weight change " + str(weightChange)
+		client.publish(topic, "ready", qos=0)
 		if (weightChange > weightChangeThreshold):
 			print "Weight change more than threshold"
 			if (val > oldWeight):
@@ -141,7 +143,8 @@ while True:
 				client.publish(topic, json.dumps(packet.__dict__), qos=0)
 			else:
 				print "Weight decreased"
-				oldWeight = val
+				hx.tare()
+				oldWeight = 0
 		GPIO.output(4, GPIO.HIGH)
 	else:
 		GPIO.output(4, GPIO.LOW)
