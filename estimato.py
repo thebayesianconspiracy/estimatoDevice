@@ -1,4 +1,3 @@
-
 from google.cloud import vision
 from fuzzywuzzy import process
 from fuzzywuzzy import fuzz
@@ -31,7 +30,7 @@ def isAllEqual(weightBuffer):
 
 def findMostProbableVegetable(labels):
     for label in labels:
-        print label.description," ",label.score
+        #print label.description," ",label.score
         extractedVegetable = process.extractOne(label.description, list_of_vegetables, scorer=fuzz.token_sort_ratio)
         if (extractedVegetable[1] > FUZZY_THRESHOLD):
             return extractedVegetable[0]
@@ -116,10 +115,12 @@ def run():
 	if (allEqual(weightBuffer) == 0):
 		print "Weight unstable" 
 		GPIO.output(4, GPIO.LOW)
+		client.publish(topic, "wait", qos=0)
 	elif (allEqual(weightBuffer) != 0):
 		print "Weight stable. Current Weight : " + str(oldWeight) 
 		weightChange = math.fabs(val - oldWeight)
 		print "weight change " + str(weightChange)
+		client.publish(topic, "ready", qos=0)
 		if (weightChange > weightChangeThreshold):
 			print "Weight change more than threshold"
 			if (val > oldWeight):
@@ -135,7 +136,8 @@ def run():
 				client.publish(topic, json.dumps(packet.__dict__), qos=0)
 			else:
 				print "Weight decreased"
-				oldWeight = val
+				hx.tare()
+				oldWeight = 0
 		GPIO.output(4, GPIO.HIGH)
 	else:
 		GPIO.output(4, GPIO.LOW)
