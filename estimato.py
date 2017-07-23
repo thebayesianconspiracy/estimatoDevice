@@ -60,14 +60,14 @@ def on_message(client, userdata, msg):
     jsonMsg = json.loads(str(msg.payload))
     #print(msg.payload) 
 
-def getLabel(image_path):
+def getLabel(image_path, vision_client):
     with io.open(image_path, 'rb') as image_file:
         content = image_file.read()
     image = vision_client.image(content=content)
     labels = image.detect_labels()
     return findMostProbableVegetable(labels)
 
-def setupMQTT():
+def setupMQTT(client):
     client.on_publish = on_publish
     client.on_connect = on_connect
     client.on_subscribe = on_subscribe
@@ -78,21 +78,21 @@ def setupMQTT():
 def setupGCP():
    credentials, project = google.auth.default()
    vision_client = vision.Client(credentials=credentials)
+   return vision_client
 
-def setupHX711():
-   hx = HX711(23, 24)
+def setupHX711(hx):
    hx.set_reading_format("LSB", "MSB")
    hx.set_reference_unit(92)
    hx.reset()
    hx.tare()
 
-def setup():
+def setup(hx, client):
    GPIO.setup(4, GPIO.OUT)
-   setupMQTT()
-   setupGCP()
-   setupHX711()
+   setupMQTT(client)
+   vision_client = setupGCP()
+   setupHX711(hx)
  
-def run():
+def run(hx, vision_client):
     ## MQTT
     packet = Payload(deviceID,appID)
     topic = "estimato/" + deviceID + "/item"
@@ -151,8 +151,9 @@ def main():
     broker = sys.argv[1]
     try:
         camera = PiCamera()
+        hx = HX711(23, 24)
         setup()
-        run()
+        run(hx)
     except (KeyboardInterrupt, SystemExit):
         cleanAndExit()
 

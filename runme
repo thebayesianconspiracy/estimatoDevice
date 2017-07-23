@@ -1,2 +1,2 @@
 export GOOGLE_APPLICATION_CREDENTIALS="Estimato-11e0bc1e7a6f.json"
-/usr/bin/python /home/pi/Desktop/estimatoDevice/estimato.py "broker.hivemq.com"
+/usr/bin/python /home/pi/Desktop/estimatoDevice_master/estimato.py "broker.hivemq.com"
