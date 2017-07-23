@@ -9,13 +9,6 @@ import time, json, sys, math, io
 import paho.mqtt.client as paho
 import google.auth
 
-list_of_vegetables = ["onion", "tomato", "sk "]
-FUZZY_THRESHOLD = 60
-deviceID = "ESTIMATO__001"
-appID = "APP_01"
-topic = "estimato/" + deviceID + "/item"
-broker = sys.argv[1]
-
 class Payload:
     deviceID = ""
     appID = ""
@@ -29,7 +22,7 @@ class Payload:
     def setLabel(self,label):
         self.label = label
 
-def allEqual(weightBuffer):
+def isAllEqual(weightBuffer):
 	average = sum(weightBuffer)/len(weightBuffer)
 	for weight in weightBuffer:
 		if (math.fabs(weight - average) > 0.05 * average and math.fabs(weight - average) > 5):
@@ -75,34 +68,43 @@ def getLabel(image_path):
     labels = image.detect_labels()
     return findMostProbableVegetable(labels)
 
+def setupMQTT():
+    client.on_publish = on_publish
+    client.on_connect = on_connect
+    client.on_subscribe = on_subscribe
+    client.on_message = on_message
+    client.connect(broker, 1883)
+    client.loop_start()
 
-def setup():
+def setupGCP():
+   credentials, project = google.auth.default()
+   vision_client = vision.Client(credentials=credentials)
+
+def setupHX711():
    hx = HX711(23, 24)
-   camera = PiCamera()
-   GPIO.setup(4, GPIO.OUT)
-   client = paho.Client(client_id="pi_device_1")
-   client.on_publish = on_publish
-   client.on_connect = on_connect
-   client.on_subscribe = on_subscribe
-   client.on_message = on_message
-   packet = Payload(deviceID,appID)
-   client.connect(broker, 1883)
-   client.loop_start()
    hx.set_reading_format("LSB", "MSB")
    hx.set_reference_unit(92)
    hx.reset()
    hx.tare()
-   credentials, project = google.auth.default()
-   vision_client = vision.Client(credentials=credentials)
 
-
-weightBuffer = [0] * 10
-oldWeight = 0
-newWeight = 0
-weightChangeThreshold = 10
-
-while True:
-    try:
+def setup():
+   GPIO.setup(4, GPIO.OUT)
+   setupMQTT()
+   setupGCP()
+   setupHX711()
+ 
+def run():
+    ## MQTT
+    packet = Payload(deviceID,appID)
+    topic = "estimato/" + deviceID + "/item"
+    ## Weight Stabilisation
+    weightBuffer = [0] * 10
+    oldWeight = 0
+    newWeight = 0
+    weightChangeThreshold = 10
+    ## Runner
+    while True:
+        print "Loop Started"
         val = -1 * hx.get_weight(5)
         print "Sensor reading : " + str(val)
         hx.power_down()
@@ -138,5 +140,19 @@ while True:
 	else:
 		GPIO.output(4, GPIO.LOW)
         time.sleep(0.1)
+        
+def main():
+    list_of_vegetables = ["onion", "tomato", "sk "]
+    FUZZY_THRESHOLD = 60
+    deviceID = "ESTIMATO__001"
+    appID = "APP_01"
+    broker = sys.argv[1]
+    try:
+        camera = PiCamera()
+        setup()
+        run()
     except (KeyboardInterrupt, SystemExit):
         cleanAndExit()
+
+if __name__ == "__main__":
+    main()
